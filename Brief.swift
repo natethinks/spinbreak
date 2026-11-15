@@ -1,0 +1,105 @@
+// The daily brief: what SpinBreak hands the AI that writes it.
+// The writer starts fresh every morning with no memory of yesterday, so the app carries the memory for it:
+// `alreadyUsed` (the picks recent briefs featured) goes into context.json, and `jobPrompt` is the standing
+// instructions SpinBreak saves as brief-prompt.md before each run of the brief writer (brief.sh).
+import Foundation
+
+enum Brief {
+    /// What recent briefs already featured, by section heading, newest first: the **bold** picks under each "## ".
+    /// Reads briefing-YYYY-MM-DD.md and briefing-evening-YYYY-MM-DD.md from the SpinBreak folder.
+    static func alreadyUsed(in dir: URL, days: Int = 45, now: Date = Date()) -> [String: [String]] {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX")
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        let cutoff = now.addingTimeInterval(-Double(days) * 86400)
+        let files = names.compactMap { n -> (Date, String)? in
+            guard n.hasPrefix("briefing-"), n.hasSuffix(".md"), let d = f.date(from: String(n.dropLast(3).suffix(10))), d > cutoff else { return nil }
+            return (d, n)
+        }.sorted { $0.0 != $1.0 ? $0.0 > $1.0 : $0.1 > $1.1 }
+        var out: [String: [String]] = [:], seen: [String: Set<String>] = [:]
+        for (_, n) in files {
+            guard let text = try? String(contentsOf: dir.appendingPathComponent(n), encoding: .utf8) else { continue }
+            for (heading, pick) in picks(text) where (out[heading]?.count ?? 0) < 40 {
+                if seen[heading, default: []].insert(pick.lowercased()).inserted { out[heading, default: []].append(pick) }
+            }
+        }
+        return out
+    }
+
+    /// Every **bold** run in a brief, with the "## " heading it sits under. Long bold runs are sentences, not picks.
+    static func picks(_ text: String) -> [(heading: String, pick: String)] {
+        var heading: String?, out: [(String, String)] = []
+        for raw in text.components(separatedBy: "\n") {
+            let s = raw.trimmingCharacters(in: .whitespaces)
+            if s.hasPrefix("## ") { heading = s.dropFirst(3).replacingOccurrences(of: "*", with: "").trimmingCharacters(in: .whitespaces); continue }
+            guard let h = heading, !h.isEmpty else { continue }
+            var rest = Substring(s)
+            while let a = rest.range(of: "**"), let z = rest[a.upperBound...].range(of: "**") {
+                let pick = rest[a.upperBound..<z.lowerBound].trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: ".,:;!?。、！？\"“”*_")))
+                // Times, temperatures and counts are bold too, but they aren't picks.
+                let pickLike = pick.contains { $0.isLetter } && pick.first?.isNumber != true && !pick.contains("°")
+                if (2...80).contains(pick.count), pickLike { out.append((h, pick)) }
+                rest = rest[z.upperBound...]
+            }
+        }
+        return out
+    }
+
+    /// The format every brief follows, for the scheduled writer and the copy-and-paste request alike.
+    static let format = """
+    Format: under 400 words. The first line is "# " and a one-line title for the day; then short "## " sections. Use only #, ##, "- " bullets, **bold** and *italic*. No tables, links, code blocks, preamble or sign-off. Put each day's pick in **bold** (the word of the day itself, the phrase itself, the verse reference, the first words of a quote): that is how SpinBreak remembers what has been used. Use bold for little else.
+    """
+
+    static let noRepeats = """
+    Don't repeat the daily picks: "alreadyUsed" in the data lists what my recent briefs already featured, by section. For a pick that is meant to be new every day (a word of the day, a phrase of the day, a quote, a question), choose one that is not on that list. Everything else on it is only a record, not a ban: whatever should stay the same or move along on its own (a reading that lasts all week, a training plan, a standing reminder) carries on as it should.
+    """
+
+    static let fallbackStyle = "Weather, what's on my calendar today, one or two follow-ups from yesterday's log, and one small nudge toward my goals. Warm, short, specific."
+
+    /// The instructions the brief writer runs on. SpinBreak saves this as brief-prompt.md right before each run,
+    /// so the date and the output path are always today's.
+    static func jobPrompt(name: String, place: String?, dir: URL, out: URL, now: Date = Date()) -> String {
+        let f = DateFormatter(); f.dateStyle = .full
+        let who = name.isEmpty ? "" : " for \(name)"
+        let weather = place.map { "today's weather in \($0)" } ?? "today's weather where I live"
+        return """
+        Write today's SpinBreak morning brief\(who). Today is \(f.string(from: now)).
+
+        I read it on a full-screen page next to my morning checklist, before I start work. It's about my life, not my job.
+
+        Do this in order:
+        1. Read context.json in this folder (\(dir.path)). It has today's date, sunrise and sunset, my calendar for today and tomorrow, yesterday's break log with my notes, how the rooms of my home are doing, my computer time, my morning checklist, and "alreadyUsed".
+        2. Read brief-style.md in this folder. It says how I want the brief written: the sections, their order, the tone, what to leave out. Follow it. If the file is missing, write: \(fallbackStyle)
+        3. Look up whatever the brief needs that isn't in context.json (\(weather), a reading, and so on). If you can't confirm something, leave it out or say so in a few words. Never make up weather or events.
+        4. \(noRepeats)
+
+        \(format)
+
+        Save the brief as exactly this file, replacing it if it already exists, then stop:
+        \(out.path)
+        """
+    }
+
+    /// The evening counterpart, for the lock screen after work. Only written when brief-style-evening.md exists.
+    static func eveningPrompt(name: String, place: String?, dir: URL, out: URL, morning: URL, now: Date = Date()) -> String {
+        let f = DateFormatter(); f.dateStyle = .full
+        let who = name.isEmpty ? "" : " for \(name)"
+        let weather = place.map { "tomorrow's weather in \($0)" } ?? "tomorrow's weather where I live"
+        return """
+        Write tonight's SpinBreak evening brief\(who). Today is \(f.string(from: now)).
+
+        It shows on my laptop's lock screen once work is over. I glance at it on my way away from the screen. It's about my life, not my job.
+
+        Do this in order:
+        1. Read context.json in this folder (\(dir.path)). It has today's date, today's break log with my notes ("todayLog"), tomorrow's calendar ("eventsTomorrow"), tomorrow's sunrise, how the rooms of my home are doing, my computer time today, and "alreadyUsed".
+        2. Read brief-style-evening.md in this folder. It says how I want the evening brief written: the sections, their order, the tone, what to leave out. Follow it.
+        3. Read this morning's brief if it exists (\(morning.lastPathComponent)), so you don't repeat it and can close what it opened.
+        4. Look up whatever the brief needs that isn't in context.json (\(weather), a reading, and so on). If you can't confirm something, leave it out or say so in a few words. Never make up weather or events.
+        5. \(noRepeats)
+
+        \(format)
+
+        Save the brief as exactly this file, replacing it if it already exists, then stop:
+        \(out.path)
+        """
+    }
+}

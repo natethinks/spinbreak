@@ -1,0 +1,12 @@
+# Built things
+/SpinBreak.app/
+/dist/
+
+# Local only: the retired watch app and its relay, the author's old prompts, an early web prototype, backups
+/watch/
+/sync/
+/briefing/
+/index.html
+*.tgz
+*.bak-*
+.DS_Store
