@@ -441,7 +441,7 @@ struct AITab: View {
                         Button("Show the log") { NSWorkspace.shared.open(b.dir.appendingPathComponent(b.briefStatus?.log ?? "brief.log")) }
                             .disabled(!FileManager.default.fileExists(atPath: b.dir.appendingPathComponent(b.briefStatus?.log ?? "brief.log").path))
                     }
-                    if briefToday { Button("Read it") { app.showMorningAgain() } }
+                    if briefToday { Button("Read it") { app.showMorningWindow() } }
                     Button("Open the SpinBreak folder") { NSWorkspace.shared.open(b.dir) }
                 }
             }

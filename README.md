@@ -11,11 +11,11 @@ A pomodoro used to be how you made yourself start work. Now that the agents do t
 
 ## What it does
 
-- **Spins up your break.** When the work timer ends the screen goes full-screen, a reel of your activities slows down, and one is revealed: walk, read, clean a room, call someone. Reroll once if it's wrong; pick your own if you must.
+- **Spins up your break.** When the work timer ends the screen goes full-screen, a reel of your activities slows down, and one is revealed: walk, read, clean a room, call someone. Reroll if it's wrong (you get two); pick your own if you must.
 - **Keeps the day balanced.** Every activity has rules: time windows, daylight, daily aims per category, weekly limits. The spinner leans toward whatever you're behind on today.
 - **Opens each workday on a morning list.** A short checklist you tick off before work, next to a morning brief your own AI writes for you.
 - **Spreads the cleaning.** Rooms are activities. After one you rate how bad it was, and rough rooms come back sooner. Two people in one home can share a calendar so nobody gets the kitchen the other is already cleaning.
-- **Ends the day.** After your workday it locks to "work's done". Weekends are reset days.
+- **Ends the day.** After your workday it locks to "work's done". Weekends are reset days. On either, "Give me a 25" still spins up something to go and do.
 - **Dings your wrist.** Break-over alarms go through Reminders, so they reach your iPhone and Apple Watch. Breaks end early before your meetings and show on your calendar.
 
 ![The morning screen](docs/morning.jpg)
@@ -50,11 +50,11 @@ SpinBreak is the scheduler. Each morning after 5 am, as soon as your Mac is awak
 3. runs `brief.sh`, a two-line script your AI wrote during setup that runs it on that prompt and prints the brief;
 4. saves what it printed, tries again later if there was no brief, and shows what went wrong in Settings › Your AI.
 
-SpinBreak is a timer and a nice face; the thinking is your own agent's. It works out the weather and whatever else you asked for from the web. It gets the web (searching and reading pages) and nothing else: no file access, no shell, no connectors. A brief is written from calendar titles and web pages that other people wrote, and a writer that can't touch your Mac can't be talked into harming it. For Claude Code, `brief.sh` is:
+SpinBreak is a timer and a nice face; the thinking is your own agent's. It works out the weather and whatever else you asked for from the web. It gets the web (searching and reading pages) and nothing else: no file access and no shell, with your own settings, plugins and MCP servers left out of the run. A brief is written from calendar titles and web pages that other people wrote, and a writer that can't touch your Mac can't be talked into harming it. For Claude Code, `brief.sh` is:
 
 ```sh
 #!/bin/sh
-exec /full/path/to/claude -p "$(cat brief-prompt.md)" --tools "WebSearch,WebFetch" --allowedTools "WebSearch" "WebFetch" --strict-mcp-config
+exec /full/path/to/claude -p "$(cat brief-prompt.md)" --restricted --tools "WebSearch,WebFetch" --allowedTools "WebSearch" "WebFetch" --strict-mcp-config
 ```
 
 Add a `brief-style-evening.md` and it writes an evening brief for the lock screen the same way.

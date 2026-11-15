@@ -35,8 +35,8 @@ Every workday opens full-screen on your morning checklist, next to your brief.
 - Check everything off to start work.
 - Need the laptop first? "I need the laptop for 5 minutes" steps the screen
   aside and brings it back, with your ticks kept.
-- Skipped it? The brief isn't gone: the tomato menu has "This Morning's Brief"
-  all day, weekends included.
+- Skipped it? Your list and brief follow you in a window you can keep beside
+  your work. The tomato menu has "This Morning's Brief" all day, weekends included.
 
 YOUR MORNING BRIEF
 - If your AI set up the daily brief, SpinBreak runs it each morning after 5 am,
@@ -60,11 +60,14 @@ rooms. Nobody gets the kitchen the other is already cleaning.
 HOW A DAY GOES
 - Press Go. Work until the timer runs out.
 - The screen goes full-screen and spins up your break. Go do it.
-  (Too far away? Reroll once. Already did it today? Tap "already did this".)
+  (Not right? Reroll, you get two. Room already clean? Tap "Already done".)
 - When the break ends, write one line about how it went and start the next block.
 - After your workday ends, the screen locks to "work's done". Hold the button for
   3 seconds if you really need 10 more minutes.
+- Day off, or work's over, and you just want to be told what to do? "Give me a 25"
+  spins up a break without starting work.
 
 GETTING OUT
-- Any full-screen SpinBreak screen has a "hold 3s" button to get you out.
+- The morning, break, day-off and evening screens have a "hold 3s" button to get you out.
+  The spin has "1 more minute"; the end of a break asks for one line and lets you in.
 - Quit from the menu bar tomato or the dock icon.

@@ -102,7 +102,7 @@ enum AISetup {
         1. Find the full path of your own command-line tool (for example: command -v claude).
         2. Write \(d)/brief.sh. Give the writer the web (searching, and reading the pages it finds) and NOTHING else: no reading or writing files, no shell, no other connectors. That is on purpose. The brief is written from calendar titles and web pages that other people wrote, and a writer that can't touch my Mac can't be talked into harming it. It doesn't need more: everything is inside brief-prompt.md, SpinBreak saves what it prints, and the web is how it works out the weather and anything else I asked for. For Claude Code it is exactly these two lines:
              #!/bin/sh
-             exec /full/path/to/claude -p "$(cat brief-prompt.md)" --tools "WebSearch,WebFetch" --allowedTools "WebSearch" "WebFetch" --strict-mcp-config
+             exec /full/path/to/claude -p "$(cat brief-prompt.md)" --restricted --tools "WebSearch,WebFetch" --allowedTools "WebSearch" "WebFetch" --strict-mcp-config
            For Codex, use "codex exec --skip-git-repo-check" with a read-only sandbox and web access turned on. For anything else, read your own --help for the non-interactive mode and for how to switch every tool off except the web. Use full paths, because the job doesn't get my shell's PATH. Then: chmod +x brief.sh
         3. Prove it through SpinBreak, not from your terminal. The app's environment is the one that has to work:
              touch "\(d)/brief.run-now"

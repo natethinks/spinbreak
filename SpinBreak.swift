@@ -989,7 +989,7 @@ struct OverlayView: View {
                 Text("\(left) to go. Go take care of it, I'll wait.").font(.system(size: 22, weight: .bold, design: .rounded)).foregroundStyle(warm)
                 BigButton(title: "💻 I need the laptop for 5 minutes", prominent: false) { app.lookAway() }
                 HoldToUnlock(label: "Skip today: hold 3s") { app.morningPassed() }
-                Text("Either way, this page stays in the 🍅 menu all day: This Morning's Brief.")
+                Text("Skip, and your list and brief follow you in a window. It's in the 🍅 menu all day: This Morning's Brief.")
                     .font(.system(size: 14, design: .rounded)).foregroundStyle(.white.opacity(0.45))
             }
         }
@@ -1014,7 +1014,10 @@ struct OverlayView: View {
             }
             let (full, total) = Engine.fullDaysThisWeek(b.history, now: Date(), cap: b.cap, workdays: b.workdays)
             Text("This week: \(full)/\(total) full workdays").font(.system(size: 16, design: .rounded)).foregroundStyle(.white.opacity(0.5))
-            BigButton(title: "Close it up 👋") { app.closeDay() }
+            HStack(spacing: 16) {
+                BigButton(title: "Close it up 👋") { app.closeDay() }
+                BigButton(title: "🎁 Give me a \(b.breakMin)", prominent: false) { app.breakNow() }
+            }
             HoldToUnlock(label: "Work anyway: hold 3s") { app.overrideDay() }
         }
     }
@@ -1055,6 +1058,7 @@ struct OverlayView: View {
                     .font(.system(size: 20, design: .rounded)).foregroundStyle(.white.opacity(0.6))
             }
             Text("Close the lid. See you tomorrow.").font(.system(size: 20, weight: .semibold, design: .rounded)).foregroundStyle(accent)
+            BigButton(title: "🎁 Give me a \(b.breakMin)", prominent: false) { app.breakNow() }
             Spacer().frame(height: 20)
             HoldToUnlock(label: "Emergency: hold 3s for 10 min") { app.eveningUnlock() }
         }
@@ -1093,8 +1097,9 @@ struct OverlayView: View {
             }
             let ready = b.note.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3 && (b.act?.isChore != true || b.mess != nil)
             HStack(spacing: 16) {
-                BigButton(title: "✅ Did it. Start work") { app.finishBreak(didIt: true) }
-                BigButton(title: "😅 Didn't. Start work", prominent: false) { app.finishBreak(didIt: false) }
+                // On a day off there's no work to start: the break just ends.
+                BigButton(title: b.lock == nil ? "✅ Did it. Start work" : "✅ Did it") { app.finishBreak(didIt: true) }
+                BigButton(title: b.lock == nil ? "😅 Didn't. Start work" : "😅 Didn't", prominent: false) { app.finishBreak(didIt: false) }
             }
             .disabled(!ready).opacity(ready ? 1 : 0.35)
             if !ready { Text(b.act?.isChore == true && b.mess == nil ? "Rate the mess and write a line. It's your log." : "Write a line first. It's your log.").font(.system(size: 14, design: .rounded)).foregroundStyle(warm) }
@@ -1123,7 +1128,7 @@ struct Dashboard: View {
                         Text("📅 Next: \(m.title ?? "Meeting") at \(m.startDate.formatted(date: .omitted, time: .shortened))")
                     }
                     HStack(spacing: 12) {
-                        if b.stage != .morning { Button("☀️ Brief") { app.showMorningAgain() } }
+                        if b.stage != .morning { Button("☀️ Brief") { app.showMorningWindow() } }
                         if !b.houseStats.isEmpty {
                             Button(b.roomsNeedingYou > 0 ? "🏠 The house · \(b.roomsNeedingYou) need\(b.roomsNeedingYou == 1 ? "s" : "") you" : "🏠 The house") { app.showHouse() }
                         }
@@ -1143,9 +1148,11 @@ struct Dashboard: View {
         switch b.stage {
         case .workReady:
             if let l = b.lock {
-                // A day (or evening) off: no timer to tempt you, and working anyway takes the long way round.
+                // A day (or evening) off: no timer to tempt you. But you can still be told what to go and do,
+                // and working anyway takes the long way round.
                 big(l == .reset ? "🌲" : "🌙", l == .reset ? "No work blocks today." : "Work's done for today.")
-                BigButton(title: "Work anyway…", prominent: false) { app.startWork() }
+                BigButton(title: "🎁 Give me a \(b.breakMin)") { app.breakNow() }
+                Button("Work anyway…") { app.startWork() }.buttonStyle(.link).font(.system(size: 12, design: .rounded))
             } else {
                 clock(app.fmt(b.workLen)); BigButton(title: "Go") { app.startWork() }
             }
@@ -1220,6 +1227,50 @@ struct Dashboard: View {
         case .dayOff: return b.dayOffReason == .reset ? "RESET DAY" : "DONE FOR TODAY"
         case .evening: return "WORK'S DONE"
         }
+    }
+}
+
+/// This morning in an ordinary window: the checklist and the brief, to keep beside your work after you've skipped
+/// the full-screen page (or just because it's nice to have open). Ticks here are the same ticks.
+struct MorningWindow: View {
+    @ObservedObject var b: Brain
+    let app: AppDelegate
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("☀️ This morning").font(.system(size: 22, weight: .heavy, design: .rounded))
+                Spacer()
+                Text(b.checksLeft == 0 ? "All done" : "\(b.checksLeft) still open")
+                    .font(.system(size: 13, weight: .bold, design: .rounded)).foregroundStyle(b.checksLeft == 0 ? accent : warm)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(b.checklist.enumerated()), id: \.offset) { i, item in
+                    Button { if b.checks.contains(i) { b.checks.remove(i) } else { b.checks.insert(i) } } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: b.checks.contains(i) ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 17)).foregroundStyle(b.checks.contains(i) ? accent : .white.opacity(0.4))
+                            Text(item).font(.system(size: 15, weight: .medium, design: .rounded))
+                                .foregroundStyle(b.checks.contains(i) ? .white.opacity(0.55) : .white)
+                            Spacer(minLength: 0)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            BriefingView(text: b.briefing, writing: b.briefRunning,
+                         empty: app.briefScript == nil ? "No brief yet today. Copy today's request from the 🍅 menu, paste it into your AI, then paste its answer back."
+                                                       : "No briefing yet today. It's written each morning after 5.")
+            HStack {
+                if app.briefScript != nil, b.briefing == nil, !b.briefRunning { Button("✍️ Write it now") { app.rewriteBriefing() } }
+                Spacer()
+                Button("Full screen") { app.showMorningAgain() }
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(20).frame(minWidth: 460, idealWidth: 560, maxWidth: .infinity, minHeight: 480, idealHeight: 760, maxHeight: .infinity)
+        .background(bgWork).foregroundStyle(.white).environment(\.colorScheme, .dark)
+        .onAppear { b.loadBriefing() }
     }
 }
 
@@ -1353,6 +1404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             view = AnyView(Dashboard(b: brain, app: self))
         case "house": size = NSSize(width: 400, height: 330); view = AnyView(HouseView(b: brain))
+        case "morning-window": size = NSSize(width: 560, height: 760); b.peek = .preview; b.checks = [0, 2]; view = AnyView(MorningWindow(b: brain, app: self))
         case let t where t.hasPrefix("spin"):
             // spin-box, spin-fast, spin-mid, spin-slow, spin-flash, spin-pop, spin (settled), spin-rare, spin-anchor, spin-small
             b.stage = .choosing; b.rerolls = 2
@@ -1485,6 +1537,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         closeWorkSession(); b.cancelDing(ding); overlay.hide(); keepAwake(false); b.spinning = false
         b.stage = .workReady; b.act = nil; b.remaining = b.workLen; b.persist(); render()
     }
+    /// Spin up a break right now. Also what "Give me a 25" does on a day off: no work block needed first.
     @objc func breakNow() { beginChoosing() }
 
     // MARK: work log (computer time, on the "SpinBreak Work" calendar)
@@ -1815,7 +1868,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func morningPassed() {
         guard b.stage == .morning else { return }
+        let skipped = b.checksLeft > 0
         b.morningDone = true; b.awayUntil = nil; overlay.hide(); b.stage = .workReady; startWork()
+        // Skipped with things still open: they stay in sight, in a window beside your work.
+        if skipped { showMorningWindow() }
     }
     func closeDay() {
         overlay.hide(); b.stage = .workReady; b.persist(); render()
@@ -1988,6 +2044,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func finishBreak(didIt: Bool) {
         markLast(didIt); b.cancelDing(ding); overlay.hide()
         b.stage = .workReady; b.act = nil; b.persist()
+        // A break taken on a day off (or after hours) ends back at the start window, not at work.
+        if b.lock != nil { keepAwake(false); render(); showDash(); return }
         startWork()
     }
 
@@ -2058,6 +2116,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return w
     }()
     @objc func showHouse() { NSApp.activate(ignoringOtherApps: true); houseWin.makeKeyAndOrderFront(nil) }
+    lazy var morningWin: NSWindow = {
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                         backing: .buffered, defer: false)
+        w.title = "This Morning"; w.isReleasedWhenClosed = false; w.center()
+        w.appearance = NSAppearance(named: .darkAqua); w.backgroundColor = NSColor(red: 0.08, green: 0.07, blue: 0.10, alpha: 1)
+        w.contentView = NSHostingView(rootView: MorningWindow(b: brain, app: self))
+        return w
+    }()
+    /// The checklist and the brief in a window you can keep beside your work.
+    @objc func showMorningWindow() {
+        if b.stage == .morning { overlay.show(); return }       // the real morning screen is up: that's the one
+        if b.peek == nil { b.checks = b.savedChecks }
+        b.loadBriefing(); NSApp.activate(ignoringOtherApps: true); morningWin.makeKeyAndOrderFront(nil)
+    }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if [.choosing, .onBreak, .breakDone, .morning, .dayOff].contains(b.stage) { overlay.show() } else { showDash() }
         return true
@@ -2101,7 +2173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .morning: add("Show Morning Screen", #selector(showOverlay))
         default: add("Show Break Screen", #selector(showOverlay))
         }
-        if b.stage != .morning { add("☀️ This Morning's Brief", #selector(showMorningAgain)) }
+        if b.stage != .morning { add("☀️ This Morning's Brief", #selector(showMorningWindow)) }
         if !b.houseStats.isEmpty { add("🏠 The House", #selector(showHouse)) }
         add("Take Break Now", #selector(breakNow), key: "b", enabled: [.workReady, .working, .workPaused].contains(b.stage))
         add("Reset", #selector(reset))
