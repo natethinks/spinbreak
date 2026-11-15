@@ -46,9 +46,16 @@ Everything it sets up can also be edited by hand in Settings.
 SpinBreak is the scheduler. Each morning after 5 am, as soon as your Mac is awake, it:
 
 1. refreshes `context.json` (today's date, sunrise and sunset, your calendar, yesterday's break log and notes, how your rooms are doing, and the words, phrases and quotes recent briefs already used, so nothing repeats);
-2. rewrites `brief-prompt.md`, the instructions for today's brief, which point at `brief-style.md` (how *you* want it written);
-3. runs `brief.sh`, a two-line script your AI wrote during setup that runs it on those instructions;
-4. tries again later if no brief appears, and shows what went wrong in Settings › Your AI.
+2. rewrites `brief-prompt.md`: the instructions for today's brief, with `brief-style.md` (how *you* want it written) and today's data already inside;
+3. runs `brief.sh`, a two-line script your AI wrote during setup that runs it on that prompt and prints the brief;
+4. saves what it printed, tries again later if there was no brief, and shows what went wrong in Settings › Your AI.
+
+SpinBreak is a timer and a nice face; the thinking is your own agent's. It works out the weather and whatever else you asked for from the web. It gets the web (searching and reading pages) and nothing else: no file access, no shell, no connectors. A brief is written from calendar titles and web pages that other people wrote, and a writer that can't touch your Mac can't be talked into harming it. For Claude Code, `brief.sh` is:
+
+```sh
+#!/bin/sh
+exec /full/path/to/claude -p "$(cat brief-prompt.md)" --tools "WebSearch,WebFetch" --allowedTools "WebSearch" "WebFetch" --strict-mcp-config
+```
 
 Add a `brief-style-evening.md` and it writes an evening brief for the lock screen the same way.
 
@@ -60,15 +67,15 @@ All of these live in `~/Library/Application Support/SpinBreak/`.
 | `setup.json` | your AI | a new setup to import; the app answers in `setup-status.json` |
 | `context.json` | the app | today's data for the brief writer |
 | `brief-style.md` | you or your AI | how you want the morning brief written |
-| `brief-prompt.md` | the app | today's full instructions for the writer |
-| `brief.sh` | your AI | runs your AI's command-line tool on `brief-prompt.md` |
-| `brief-status.json`, `brief.log` | the app | how the last run went |
-| `briefing-YYYY-MM-DD.md` | the writer | the brief itself |
+| `brief-prompt.md` | the app | today's full instructions for the writer, data included |
+| `brief.sh` | your AI | runs your AI's command-line tool on `brief-prompt.md` and prints the brief |
+| `brief-status.json`, `brief.out`, `brief.log` | the app | how the last run went, what it printed, and its errors |
+| `briefing-YYYY-MM-DD.md` | the app | the brief itself |
 | `brief.run-now` | anyone | `touch` it to write today's brief right now |
 
 ## Privacy
 
-There is no server and no account. Your list, your log and your briefs stay in that folder on your Mac. Your calendar and break notes go only to the AI you chose to write your brief, when it runs.
+There is no server and no account. Your list, your log and your briefs stay in that folder on your Mac. Your calendar and break notes go only to the AI you chose to write your brief, when it runs, and that run is given the web and nothing else.
 
 ## Build it yourself
 

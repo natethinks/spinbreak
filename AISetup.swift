@@ -96,18 +96,18 @@ enum AISetup {
         STEP 4 · THE DAILY BRIEF JOB (kind A)
         SpinBreak is the scheduler, so do NOT create a launchd job, a cron entry, a reminder or a cloud routine (a cloud job can't reach this folder anyway). Every morning, as soon as my Mac is awake after 5 am, SpinBreak:
         - refreshes context.json: today's date, sunrise and sunset, my calendar for today and tomorrow, yesterday's break log with my notes, how my rooms are doing, and "alreadyUsed" (the words, phrases and quotes my recent briefs already featured, so nothing repeats);
-        - rewrites brief-prompt.md: the full instructions for today's brief, pointing at brief-style.md (the "brief" text from my JSON);
-        - runs brief.sh from the folder, tries again later if no brief appears, and shows me when it fails.
-        Your part is that one small file:
+        - rewrites brief-prompt.md: the complete instructions for today's brief, with brief-style.md (the "brief" text from my JSON) and today's data already inside it;
+        - runs brief.sh from the folder, saves the brief it prints, tries again later if there isn't one, and shows me when it fails.
+        Your part is that one small file. Its whole job: run you, non-interactively, on brief-prompt.md, and print the brief on standard output.
         1. Find the full path of your own command-line tool (for example: command -v claude).
-        2. Write \(d)/brief.sh so that it runs you, non-interactively, on the instructions in brief-prompt.md, allowed to read and write files in that folder and to search the web. SpinBreak runs it with the folder as the working directory. For Claude Code it is exactly these two lines:
+        2. Write \(d)/brief.sh. Give the writer the web (searching, and reading the pages it finds) and NOTHING else: no reading or writing files, no shell, no other connectors. That is on purpose. The brief is written from calendar titles and web pages that other people wrote, and a writer that can't touch my Mac can't be talked into harming it. It doesn't need more: everything is inside brief-prompt.md, SpinBreak saves what it prints, and the web is how it works out the weather and anything else I asked for. For Claude Code it is exactly these two lines:
              #!/bin/sh
-             exec /full/path/to/claude -p "$(cat brief-prompt.md)" --allowedTools "Read" "Write" "Edit" "WebSearch" "WebFetch"
-           For Codex, use "codex exec --skip-git-repo-check" (the folder isn't a git repository) with a sandbox that can write in the folder and web search turned on. For anything else, read your own --help for the non-interactive mode. Use full paths, because the job doesn't get my shell's PATH. Then: chmod +x brief.sh
+             exec /full/path/to/claude -p "$(cat brief-prompt.md)" --tools "WebSearch,WebFetch" --allowedTools "WebSearch" "WebFetch" --strict-mcp-config
+           For Codex, use "codex exec --skip-git-repo-check" with a read-only sandbox and web access turned on. For anything else, read your own --help for the non-interactive mode and for how to switch every tool off except the web. Use full paths, because the job doesn't get my shell's PATH. Then: chmod +x brief.sh
         3. Prove it through SpinBreak, not from your terminal. The app's environment is the one that has to work:
              touch "\(d)/brief.run-now"
-           SpinBreak starts the job within 5 seconds. Read brief-status.json every 15 seconds or so until "state" is "ok" or "failed" (a run usually takes one to three minutes). If it failed, read "detail" there and brief.log, fix brief.sh, and touch brief.run-now again. Don't stop at "it should work".
-        4. Read the brief it wrote (its path is in brief-status.json), show it to me, and ask what I'd change. How it's written lives in brief-style.md, plain text, re-read on every run: edit that and run the job again.
+           SpinBreak starts the job within 5 seconds. Read brief-status.json every 15 seconds or so until "state" is "ok" or "failed" (a run usually takes one to three minutes). If it failed, read "detail" there, brief.out (what your script printed) and brief.log (its errors), fix brief.sh, and touch brief.run-now again. Don't stop at "it should work".
+        4. Read the brief (its path is in brief-status.json), show it to me, and ask what I'd change. How it's written lives in brief-style.md, plain text, re-read on every run: edit that and run the job again.
 
         WHEN YOU'RE DONE
         Tell me in a few lines what you set up and how I change it later (SpinBreak › Settings for the list and the morning checklist; brief-style.md or Settings › Your AI for the brief). Then tell me to go back to SpinBreak and press "I'm set, let's go".

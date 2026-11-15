@@ -1718,13 +1718,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// The writer SpinBreak runs: brief.sh in the SpinBreak folder, which the AI that set the app up wrote.
     var briefScript: URL? { FileManager.default.fileExists(atPath: b.briefJobURL.path) ? b.briefJobURL : nil }
 
-    /// The instructions brief.sh runs on, rewritten before every run so the date and the output path are always
-    /// right. The same file serves the morning brief and (when you've set one up) the evening one.
+    /// The instructions brief.sh runs on, rewritten before every run with today's data inside them: your brief
+    /// instructions and context.json. The writer needs no access to your files. The same prompt file serves the
+    /// morning brief and (when you've set one up) the evening one.
     func writeBriefPrompt(evening: Bool = false) {
+        func text(_ u: URL) -> String? { try? String(contentsOf: u, encoding: .utf8) }
         let name = b.d.string(forKey: "personName") ?? "", place = b.d.string(forKey: "placeName")
-        let text = evening ? Brief.eveningPrompt(name: name, place: place, dir: b.dir, out: b.eveningURL, morning: b.briefingURL)
-                           : Brief.jobPrompt(name: name, place: place, dir: b.dir, out: b.briefingURL)
-        try? text.write(to: b.dir.appendingPathComponent("brief-prompt.md"), atomically: true, encoding: .utf8)
+        let context = text(b.dir.appendingPathComponent("context.json")) ?? "{}"
+        let prompt = evening ? Brief.eveningPrompt(name: name, place: place, style: text(b.eveningStyleURL) ?? "", context: context, morning: text(b.briefingURL))
+                             : Brief.jobPrompt(name: name, place: place, style: b.briefStyle, context: context)
+        try? prompt.write(to: b.dir.appendingPathComponent("brief-prompt.md"), atomically: true, encoding: .utf8)
     }
 
     func saveBriefStatus(_ st: BriefStatus) {
@@ -1749,19 +1752,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         env["PATH"] = [env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin", "/opt/homebrew/bin", "/usr/local/bin", "\(home)/.local/bin", "\(home)/bin"].joined(separator: ":")
         env["SPINBREAK_DIR"] = b.dir.path; env["SPINBREAK_OUT"] = out.path; env["SPINBREAK_KIND"] = st.kind
         p.environment = env
-        let log = b.dir.appendingPathComponent("brief.log")
-        fm.createFile(atPath: log.path, contents: nil)
-        if let h = try? FileHandle(forWritingTo: log) { p.standardOutput = h; p.standardError = h }
+        // What it prints is the brief (kept in brief.out); anything it complains about goes to brief.log.
+        let log = b.dir.appendingPathComponent("brief.log"), printed = b.dir.appendingPathComponent("brief.out")
+        fm.createFile(atPath: log.path, contents: nil); fm.createFile(atPath: printed.path, contents: nil)
+        if let h = try? FileHandle(forWritingTo: printed) { p.standardOutput = h }
+        if let h = try? FileHandle(forWritingTo: log) { p.standardError = h }
         p.standardInput = FileHandle.nullDevice
         var timedOut = false
         p.terminationHandler = { proc in DispatchQueue.main.async {
-            let wrote = ((try? fm.attributesOfItem(atPath: out.path))?[.modificationDate] as? Date).map { $0 >= started.addingTimeInterval(-1) } ?? false
+            // The brief is what the writer printed. (An older brief.sh that wrote the file itself still counts.)
+            var wrote = ((try? fm.attributesOfItem(atPath: out.path))?[.modificationDate] as? Date).map { $0 >= started.addingTimeInterval(-1) } ?? false
+            if !wrote, let text = (try? String(contentsOf: printed, encoding: .utf8)).flatMap(Brief.extract) {
+                wrote = (try? text.write(to: out, atomically: true, encoding: .utf8)) != nil
+            }
             let size = ((try? fm.attributesOfItem(atPath: out.path))?[.size] as? Int) ?? 0
             st.finished = Date(); st.state = wrote && size > 40 ? "ok" : "failed"
             if st.state == "failed" {
                 st.detail = timedOut ? "it ran for more than 10 minutes and was stopped"
                     : proc.terminationStatus != 0 ? "\(script.lastPathComponent) exited with code \(proc.terminationStatus)"
-                    : "\(script.lastPathComponent) finished without writing \(out.lastPathComponent)"
+                    : "\(script.lastPathComponent) didn't print a brief (what it printed is in brief.out)"
             }
             // The prompt file goes back to the morning's, which is what anyone reading the folder expects to find.
             if evening { self.writeBriefPrompt() }
