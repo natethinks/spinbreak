@@ -89,19 +89,6 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !b.setupDone {
-                HStack(spacing: 14) {
-                    Text("🍅").font(.system(size: 34))
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Welcome to SpinBreak").font(.system(size: 17, weight: .bold, design: .rounded))
-                        Text("Short bursts of work, then a long break doing a real thing, picked by a spin. Make it yours first: copy the setup prompt below into your own AI and it finishes the install, or edit the starter list by hand in the other tabs.")
-                            .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer()
-                    Button("I'm set, let's go") { app.finishSetup() }.buttonStyle(.borderedProminent).controlSize(.large)
-                }
-                .padding(16).background(accent.opacity(0.12))
-            }
             TabView(selection: $m.tab) {
                 ActivitiesTab(m: m).tabItem { Text("Activities") }.tag(0)
                 BalanceTab(m: m).tabItem { Text("Balance") }.tag(1)
@@ -410,63 +397,36 @@ struct AITab: View {
 
     var body: some View {
         Form {
-            Section {
-                Text("Let your own AI finish the install. It interviews you about your mornings, your home and what you want your breaks filled with, then writes your whole list and your morning brief.")
-                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            Section("1 · Give your AI the setup prompt") {
-                HStack(alignment: .top, spacing: 12) {
+            Section("Set up by your own agent") {
+                HStack(alignment: .center, spacing: 12) {
                     Button(copied ? "Copied ✓" : "Copy setup prompt") {
-                        let p = AISetup.setupPrompt(dir: b.dir, rooms: nil)
-                        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(p, forType: .string); copied = true
+                        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(AISetup.setupPrompt(dir: b.dir, rooms: nil), forType: .string); copied = true
                     }.buttonStyle(.borderedProminent).controlSize(.large)
-                    Text("Paste it into an AI that can run commands on this Mac (Claude Code, Codex, Cursor…) and it does everything below by itself, including a brief that writes itself every morning. A chat AI in your browser works too: you paste its answer back in step 3.")
+                    Text("Paste it into Claude Code, Codex, or whatever you use. It interviews you and does the rest. Run it again any time to start over.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
-                Text("Share a home with someone who uses SpinBreak? Paste their room list (their Settings › Household › Copy my rooms) into the chat too, so your spinners split the cleaning.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if !m.importMsg.isEmpty { Text(m.importMsg).font(.callout).foregroundStyle(m.importMsg.hasPrefix("⚠️") ? warm : .primary).fixedSize(horizontal: false, vertical: true) }
             }
-            Section("2 · What's set up") {
-                // Files your AI saves show up here by themselves.
-                TimelineView(.periodic(from: .now, by: 2)) { _ in
-                    VStack(alignment: .leading, spacing: 10) {
-                        row(setup != nil, "Your activities, rooms and morning checklist", setup ?? "Waiting for your AI. Until then you have the starter list.")
-                        row(app.briefScript != nil, "Daily brief writer", writer)
-                        row(briefToday, "Today's brief", briefLine)
-                    }
-                }
+            Section("Your morning brief") {
+                TimelineView(.periodic(from: .now, by: 2)) { _ in Text(writer).font(.callout).fixedSize(horizontal: false, vertical: true) }
                 HStack {
                     if app.briefScript != nil {
-                        Button(b.briefRunning ? "Writing…" : (briefToday ? "Write it again" : "Write today's brief now")) { app.rewriteBriefing() }.disabled(b.briefRunning)
-                        Button("Show the log") { NSWorkspace.shared.open(b.dir.appendingPathComponent(b.briefStatus?.log ?? "brief.log")) }
-                            .disabled(!FileManager.default.fileExists(atPath: b.dir.appendingPathComponent(b.briefStatus?.log ?? "brief.log").path))
+                        Button(b.briefRunning ? "Writing…" : "Write today's now") { app.rewriteBriefing() }.disabled(b.briefRunning)
+                        Button("Show the log") { NSWorkspace.shared.open(b.dir.appendingPathComponent("brief.log")) }
                     }
-                    if briefToday { Button("Read it") { app.showMorningWindow() } }
                     Button("Open the SpinBreak folder") { NSWorkspace.shared.open(b.dir) }
                 }
+                Text("How it should be written. Your agent wrote this; change anything. It's read fresh every morning.")
+                    .font(.caption).foregroundStyle(.secondary)
+                TextEditor(text: $style).font(.body).frame(minHeight: 130)
+                    .onChange(of: style) { _, v in b.briefStyle = v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : v }
             }
-            Section("3 · Chat AI without access to this Mac? Copy its whole answer, then") {
+            Section("Using a chat AI that can't reach this Mac") {
                 HStack {
-                    Button("Read it from the clipboard") { m.previewPaste() }
-                    if m.pending != nil { Button("Use this setup") { m.confirmImport(); style = b.briefStyle ?? "" }.buttonStyle(.borderedProminent) }
-                }
-                if let x = m.pending {
-                    Text("Ready to set up \(x.summary)\(x.place.map { ", home: \($0)" } ?? ""). This replaces your current list (it gets backed up).")
-                        .font(.callout).fixedSize(horizontal: false, vertical: true)
-                }
-                if !m.importMsg.isEmpty { Text(m.importMsg).font(.callout).foregroundStyle(m.importMsg.hasPrefix("⚠️") ? warm : .primary).fixedSize(horizontal: false, vertical: true) }
-                HStack {
+                    Button("Paste its setup answer") { m.previewPaste(); if m.pending != nil { m.confirmImport(); style = b.briefStyle ?? "" } }
                     Button("Copy today's brief request") { app.copyBriefRequest() }
                     Button("Paste today's brief") { app.pasteBrief() }
                 }
-                Text("With a chat AI the brief is copy and paste: each morning, copy today's request, paste it into your AI, and paste its answer back. The morning screen has the same two buttons.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            Section("How your brief is written") {
-                Text("Your AI wrote this during setup; change anything. It's read fresh every morning. Words of the day, phrases and quotes from past briefs are remembered, so they don't come back.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                TextEditor(text: $style).font(.body).frame(minHeight: 110)
-                    .onChange(of: style) { _, v in b.briefStyle = v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : v }
             }
         }
         .formStyle(.grouped)
@@ -474,34 +434,12 @@ struct AITab: View {
         .onReceive(m.$importMsg) { _ in style = b.briefStyle ?? "" }
     }
 
-    func row(_ ok: Bool, _ title: String, _ detail: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: ok ? "checkmark.circle.fill" : "circle").foregroundStyle(ok ? accent : .secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    var setup: String? { b.d.string(forKey: "setupImported") }
-    var briefToday: Bool { FileManager.default.fileExists(atPath: b.briefingURL.path) }
     var writer: String {
-        guard let s = app.briefScript else { return "None yet. An AI that can run commands on this Mac sets one up from the setup prompt. Without one, the brief is copy and paste (step 3)." }
-        let name = s == b.briefJobURL ? "brief.sh in the SpinBreak folder" : s.path
-        guard let st = b.briefStatus, st.kind == "morning" else { return "\(name). SpinBreak runs it each morning after 5." }
+        guard app.briefScript != nil else { return "No brief writer yet. Your agent sets one up from the setup prompt." }
+        if b.briefRunning { return "Writing today's brief now…" }
+        guard let st = b.briefStatus, st.kind == "morning" else { return "Your agent's brief.sh writes it each morning after 5." }
         let t = (st.finished ?? st.started).formatted(date: .abbreviated, time: .shortened)
-        switch st.state {
-        case "running": return "\(name). Writing now…"
-        case "ok": return "\(name). Last run \(t): wrote the brief."
-        default: return "⚠️ Last run \(t) failed: \(st.detail). SpinBreak tries again by itself; the log says more."
-        }
-    }
-    var briefLine: String {
-        if b.briefRunning { return "Being written now. It usually takes a minute or two." }
-        guard briefToday else { return app.briefScript == nil ? "Not yet." : "Not yet. It's written after 5 am, as soon as your Mac is awake." }
-        let at = (try? FileManager.default.attributesOfItem(atPath: b.briefingURL.path))?[.modificationDate] as? Date
-        return "Written\(at.map { " at " + $0.formatted(date: .omitted, time: .shortened) } ?? ""). It's on the morning screen, and under This Morning's Brief in the 🍅 menu."
+        return st.state == "ok" ? "Written by your agent's brief.sh. Last run \(t)." : "⚠️ Last run \(t) failed: \(st.detail). It tries again by itself; the log says more."
     }
 }
 

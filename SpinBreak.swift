@@ -575,6 +575,7 @@ struct Planned: Identifiable { let at: Date; let act: Activity; var id: Double {
 struct BriefingView: View {
     let text: String?; let writing: Bool
     var empty = "No briefing yet today. It's written each morning after 5."
+    var maxHeight: CGFloat = 820
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
@@ -588,7 +589,7 @@ struct BriefingView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading).padding(28)
         }
-        .frame(maxHeight: 820)
+        .frame(maxHeight: maxHeight)
         .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 22))
     }
     @ViewBuilder func line(_ raw: String) -> some View {
@@ -989,7 +990,7 @@ struct OverlayView: View {
                 Text("\(left) to go. Go take care of it, I'll wait.").font(.system(size: 22, weight: .bold, design: .rounded)).foregroundStyle(warm)
                 BigButton(title: "💻 I need the laptop for 5 minutes", prominent: false) { app.lookAway() }
                 HoldToUnlock(label: "Skip today: hold 3s") { app.morningPassed() }
-                Text("Skip, and your list and brief follow you in a window. It's in the 🍅 menu all day: This Morning's Brief.")
+                Text("Skip, and your list and brief stay on the SpinBreak window all day.")
                     .font(.system(size: 14, design: .rounded)).foregroundStyle(.white.opacity(0.45))
             }
         }
@@ -1109,13 +1110,15 @@ struct OverlayView: View {
     }
 }
 
-/// The small window you get from the Dock icon: where you are, the one button that matters, and how today
-/// is going across the parts of your life. The house has its own window (`HouseView`).
+/// The window you get from the Dock icon. Left: where you are, the one button that matters, and how today is
+/// going across the parts of your life. Right: this morning, meaning your list while anything on it is still
+/// open, and the brief to read again. The house has its own window (`HouseView`).
 struct Dashboard: View {
     @ObservedObject var b: Brain
     let app: AppDelegate
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
+            HStack(alignment: .top, spacing: 0) {
             VStack(spacing: 14) {
                 Text(headline).font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(b.stage == .onBreak ? accent : warm)
                 now
@@ -1128,7 +1131,6 @@ struct Dashboard: View {
                         Text("📅 Next: \(m.title ?? "Meeting") at \(m.startDate.formatted(date: .omitted, time: .shortened))")
                     }
                     HStack(spacing: 12) {
-                        if b.stage != .morning { Button("☀️ Brief") { app.showMorningWindow() } }
                         if !b.houseStats.isEmpty {
                             Button(b.roomsNeedingYou > 0 ? "🏠 The house · \(b.roomsNeedingYou) need\(b.roomsNeedingYou == 1 ? "s" : "") you" : "🏠 The house") { app.showHouse() }
                         }
@@ -1139,7 +1141,54 @@ struct Dashboard: View {
                 .font(.system(size: 12, design: .rounded))
             }
             .padding(24).frame(width: 360)
+            // The right-hand side takes whatever room the window has: drag it bigger to read the brief comfortably.
+            morning.frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(minWidth: 800, idealWidth: 1080, maxWidth: .infinity, minHeight: 640, idealHeight: 780, maxHeight: .infinity, alignment: .top)
+            .background(bgWork).foregroundStyle(.white).environment(\.colorScheme, .dark)
         }
+    }
+
+    /// This morning, beside your day: the list while anything on it is open (same ticks as the full-screen page),
+    /// then the brief.
+    var morning: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("☀️ This morning").font(.system(size: 15, weight: .heavy, design: .rounded))
+                Spacer()
+                if b.checklist.isEmpty { EmptyView() }
+                else if b.checksLeft == 0 { Text("✓ list done").font(.system(size: 12, weight: .bold, design: .rounded)).foregroundStyle(accent) }
+                else { Text("\(b.checksLeft) still open").font(.system(size: 12, weight: .bold, design: .rounded)).foregroundStyle(warm) }
+            }
+            if b.checksLeft > 0 {
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(Array(b.checklist.enumerated()), id: \.offset) { i, item in
+                        Button { if b.checks.contains(i) { b.checks.remove(i) } else { b.checks.insert(i) } } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: b.checks.contains(i) ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(size: 15)).foregroundStyle(b.checks.contains(i) ? accent : .white.opacity(0.4))
+                                Text(item).font(.system(size: 13, weight: .medium, design: .rounded)).lineLimit(1)
+                                    .foregroundStyle(b.checks.contains(i) ? .white.opacity(0.5) : .white)
+                                Spacer(minLength: 0)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            BriefingView(text: b.briefing, writing: b.briefRunning,
+                         empty: app.briefScript == nil ? "No brief yet today. Your agent sets up a daily one from the setup prompt (Settings › Your AI)."
+                                                       : "No briefing yet today. It's written each morning after 5.", maxHeight: .infinity)
+            HStack {
+                if app.briefScript != nil, b.briefing == nil, !b.briefRunning { Button("✍️ Write it now") { app.rewriteBriefing() } }
+                Spacer()
+                if b.stage != .morning { Button("Full screen") { app.showMorningAgain() } }
+            }
+            .buttonStyle(.link).font(.system(size: 12, design: .rounded))
+        }
+        .padding(.vertical, 20).padding(.trailing, 20)
+        .onAppear { b.loadBriefing() }
     }
 
     /// The top half: what's happening right now and the one thing to press. Every stage gets its own.
@@ -1230,47 +1279,44 @@ struct Dashboard: View {
     }
 }
 
-/// This morning in an ordinary window: the checklist and the brief, to keep beside your work after you've skipped
-/// the full-screen page (or just because it's nice to have open). Ticks here are the same ticks.
-struct MorningWindow: View {
+/// What a new install opens on: one button. Your own agent does the setting up; this window only hands it the
+/// prompt, and turns into "Let's go" when the agent has saved your setup.
+struct WelcomeView: View {
+    @ObservedObject var m: SettingsModel
     @ObservedObject var b: Brain
     let app: AppDelegate
+    @State private var copied = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("☀️ This morning").font(.system(size: 22, weight: .heavy, design: .rounded))
-                Spacer()
-                Text(b.checksLeft == 0 ? "All done" : "\(b.checksLeft) still open")
-                    .font(.system(size: 13, weight: .bold, design: .rounded)).foregroundStyle(b.checksLeft == 0 ? accent : warm)
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(Array(b.checklist.enumerated()), id: \.offset) { i, item in
-                    Button { if b.checks.contains(i) { b.checks.remove(i) } else { b.checks.insert(i) } } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: b.checks.contains(i) ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 17)).foregroundStyle(b.checks.contains(i) ? accent : .white.opacity(0.4))
-                            Text(item).font(.system(size: 15, weight: .medium, design: .rounded))
-                                .foregroundStyle(b.checks.contains(i) ? .white.opacity(0.55) : .white)
-                            Spacer(minLength: 0)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+        VStack(spacing: 16) {
+            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 104, height: 104)
+            Text("SpinBreak").font(.system(size: 30, weight: .black, design: .rounded))
+            if let done = b.d.string(forKey: "setupImported") {
+                Text("Your agent set you up: \(done).")
+                    .font(.system(size: 15, design: .rounded)).foregroundStyle(.white.opacity(0.8)).multilineTextAlignment(.center)
+                BigButton(title: "Let's go") { app.finishSetup() }
+            } else {
+                Text("Your own agent sets this up. Copy the prompt and paste it into Claude Code, Codex, or whatever you use.")
+                    .font(.system(size: 15, design: .rounded)).foregroundStyle(.white.opacity(0.8)).multilineTextAlignment(.center)
+                BigButton(title: copied ? "Copied ✓" : "Copy setup prompt") {
+                    NSPasteboard.general.clearContents(); NSPasteboard.general.setString(AISetup.setupPrompt(dir: b.dir, rooms: nil), forType: .string); copied = true
+                }
+                if copied {
+                    Text("Paste it into your agent. This window changes when it's done.")
+                        .font(.system(size: 13, design: .rounded)).foregroundStyle(accent)
                 }
             }
-            BriefingView(text: b.briefing, writing: b.briefRunning,
-                         empty: app.briefScript == nil ? "No brief yet today. Copy today's request from the 🍅 menu, paste it into your AI, then paste its answer back."
-                                                       : "No briefing yet today. It's written each morning after 5.")
-            HStack {
-                if app.briefScript != nil, b.briefing == nil, !b.briefRunning { Button("✍️ Write it now") { app.rewriteBriefing() } }
-                Spacer()
-                Button("Full screen") { app.showMorningAgain() }
+            if m.importMsg.hasPrefix("⚠️") {
+                Text(m.importMsg).font(.system(size: 12, design: .rounded)).foregroundStyle(warm).multilineTextAlignment(.center)
             }
-            .buttonStyle(.bordered)
+            HStack(spacing: 18) {
+                // A chat AI can't save files: its answer comes in off the clipboard instead.
+                Button("Paste a chat AI's answer") { m.previewPaste(); if m.pending != nil { m.confirmImport() } }
+                Button("Set it up by hand") { app.finishSetup(); app.showSettings() }
+            }
+            .buttonStyle(.link).font(.system(size: 12, design: .rounded)).padding(.top, 6)
         }
-        .padding(20).frame(minWidth: 460, idealWidth: 560, maxWidth: .infinity, minHeight: 480, idealHeight: 760, maxHeight: .infinity)
+        .padding(34).frame(width: 440)
         .background(bgWork).foregroundStyle(.white).environment(\.colorScheme, .dark)
-        .onAppear { b.loadBriefing() }
     }
 }
 
@@ -1329,7 +1375,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else { ding.calAsked = true }     // a sandbox never asks for Calendar or Reminders
         startGuard()
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.ding.scheduleTonight([]) }   // removes old pre-planned blocks
-        if b.setupDone { showDash() } else { showSettings() }
+        if b.setupDone { showDash() } else { showWelcome() }
         let rebuild: (Notification) -> Void = { [weak self] _ in
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self?.overlay.rebuild() }
         }
@@ -1382,7 +1428,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                               mins: [22.0, 15, 31, 12][i], mess: [3, 1, 2, 1][i]))
             }
             h.append(Done(id: walk.id, category: walk.category, at: now.addingTimeInterval(-5400), completed: true, note: "Loop around the block"))
-            h.append(Done(id: cat.activities[2].id, category: cat.activities[2].category, at: now.addingTimeInterval(-1800), completed: true, note: "Good one"))
+            let other = cat.activities[min(2, cat.activities.count - 1)]
+            h.append(Done(id: other.id, category: other.category, at: now.addingTimeInterval(-1800), completed: true, note: "Good one"))
             b.history = h.sorted { $0.at < $1.at }
         }
         b.loadBriefing()
@@ -1395,7 +1442,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var view = AnyView(OverlayView(b: brain, app: self))
         switch what {
         case let t where t.hasPrefix("dashboard"):
-            size = NSSize(width: 360, height: 620)
+            size = NSSize(width: 1080, height: 780)
             switch t {
             case "dashboard-working": b.stage = .working; b.endAt = now.addingTimeInterval(222)
             case "dashboard-break": b.stage = .onBreak; b.act = walk; b.endAt = now.addingTimeInterval(b.breakLen)
@@ -1404,7 +1451,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             view = AnyView(Dashboard(b: brain, app: self))
         case "house": size = NSSize(width: 400, height: 330); view = AnyView(HouseView(b: brain))
-        case "morning-window": size = NSSize(width: 560, height: 760); b.peek = .preview; b.checks = [0, 2]; view = AnyView(MorningWindow(b: brain, app: self))
+        case "welcome": size = NSSize(width: 440, height: 400); view = AnyView(WelcomeView(m: settingsModel, b: brain, app: self))
         case let t where t.hasPrefix("spin"):
             // spin-box, spin-fast, spin-mid, spin-slow, spin-flash, spin-pop, spin (settled), spin-rare, spin-anchor, spin-small
             b.stage = .choosing; b.rerolls = 2
@@ -1633,7 +1680,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             try? data.write(to: b.dir.appendingPathComponent("setup-status.json"), options: .atomic)
         }
         writeContext(); writeBriefPrompt()
-        settingsModel.tab = 4; showSettings(); settingsChanged()
+        // A new install is looking at the welcome window, which now says it's done; otherwise Settings shows what came in.
+        if b.setupDone { settingsModel.tab = 4; showSettings() } else { showWelcome() }
+        settingsChanged()
     }
 
     /// `touch brief.run-now` in the SpinBreak folder: write today's brief right now. This is how the AI that
@@ -1870,8 +1919,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard b.stage == .morning else { return }
         let skipped = b.checksLeft > 0
         b.morningDone = true; b.awayUntil = nil; overlay.hide(); b.stage = .workReady; startWork()
-        // Skipped with things still open: they stay in sight, in a window beside your work.
-        if skipped { showMorningWindow() }
+        // Skipped with things still open: the SpinBreak window comes up, where the list and the brief stay in sight.
+        if skipped { showDash() }
     }
     func closeDay() {
         overlay.hide(); b.stage = .workReady; b.persist(); render()
@@ -2102,13 +2151,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: Dock + dashboard window
 
     lazy var dash: NSWindow = {
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 420), styleMask: [.titled, .closable, .miniaturizable],
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 780), styleMask: [.titled, .closable, .miniaturizable, .resizable],
                          backing: .buffered, defer: false)
         w.title = "SpinBreak"; w.isReleasedWhenClosed = false; w.center()
+        w.appearance = NSAppearance(named: .darkAqua); w.backgroundColor = NSColor(red: 0.08, green: 0.07, blue: 0.10, alpha: 1)
         w.contentView = NSHostingView(rootView: Dashboard(b: brain, app: self))
+        if sandbox == nil { w.setFrameAutosaveName("SpinBreakMain") }      // comes back the size you left it
         return w
     }()
-    @objc func showDash() { NSApp.activate(ignoringOtherApps: true); dash.makeKeyAndOrderFront(nil) }
+    @objc func showDash() {
+        if b.peek == nil, b.stage != .morning { b.checks = b.savedChecks }
+        b.loadBriefing(); NSApp.activate(ignoringOtherApps: true); dash.makeKeyAndOrderFront(nil)
+    }
     lazy var houseWin: NSWindow = {
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 320), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = "The House"; w.isReleasedWhenClosed = false; w.center()
@@ -2116,22 +2170,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return w
     }()
     @objc func showHouse() { NSApp.activate(ignoringOtherApps: true); houseWin.makeKeyAndOrderFront(nil) }
-    lazy var morningWin: NSWindow = {
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                         backing: .buffered, defer: false)
-        w.title = "This Morning"; w.isReleasedWhenClosed = false; w.center()
-        w.appearance = NSAppearance(named: .darkAqua); w.backgroundColor = NSColor(red: 0.08, green: 0.07, blue: 0.10, alpha: 1)
-        w.contentView = NSHostingView(rootView: MorningWindow(b: brain, app: self))
-        return w
-    }()
-    /// The checklist and the brief in a window you can keep beside your work.
-    @objc func showMorningWindow() {
-        if b.stage == .morning { overlay.show(); return }       // the real morning screen is up: that's the one
-        if b.peek == nil { b.checks = b.savedChecks }
-        b.loadBriefing(); NSApp.activate(ignoringOtherApps: true); morningWin.makeKeyAndOrderFront(nil)
-    }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if [.choosing, .onBreak, .breakDone, .morning, .dayOff].contains(b.stage) { overlay.show() } else { showDash() }
+        if !b.setupDone { showWelcome() }
+        else if [.choosing, .onBreak, .breakDone, .morning, .dayOff].contains(b.stage) { overlay.show() } else { showDash() }
         return true
     }
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
@@ -2173,7 +2214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .morning: add("Show Morning Screen", #selector(showOverlay))
         default: add("Show Break Screen", #selector(showOverlay))
         }
-        if b.stage != .morning { add("☀️ This Morning's Brief", #selector(showMorningWindow)) }
+        if b.stage != .morning { add("☀️ This Morning's Brief", #selector(showDash)) }
         if !b.houseStats.isEmpty { add("🏠 The House", #selector(showHouse)) }
         add("Take Break Now", #selector(breakNow), key: "b", enabled: [.workReady, .working, .workPaused].contains(b.stage))
         add("Reset", #selector(reset))
@@ -2284,7 +2325,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true); settingsWin.makeKeyAndOrderFront(nil)
     }
     func settingsChanged() { if b.stage == .workReady { b.remaining = b.workLen }; render() }
-    func finishSetup() { b.setupDone = true; settingsWin.close(); showDash() }
+    func finishSetup() { b.setupDone = true; settingsWin.close(); welcomeWin.close(); showDash() }
+    lazy var welcomeWin: NSWindow = {
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 420), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        w.title = "Welcome"; w.isReleasedWhenClosed = false; w.center()
+        w.appearance = NSAppearance(named: .darkAqua); w.backgroundColor = NSColor(red: 0.08, green: 0.07, blue: 0.10, alpha: 1)
+        w.contentView = NSHostingView(rootView: WelcomeView(m: settingsModel, b: brain, app: self))
+        return w
+    }()
+    func showWelcome() { NSApp.activate(ignoringOtherApps: true); welcomeWin.makeKeyAndOrderFront(nil) }
     @objc func toggleLogin() {
         if #available(macOS 13.0, *) {
             let s = SMAppService.mainApp; guard sandbox == nil else { return }
@@ -2317,6 +2366,9 @@ enum Main {
     static func main() {
         // `SpinBreak --print-setup-prompt`: the prompt the Your AI tab copies, on stdout (for testing the install flow).
         if CommandLine.arguments.contains("--print-setup-prompt") { print(AISetup.setupPrompt(dir: Brain().dir, rooms: nil)); return }
+        // SpinBreak restores its own state (a running timer, a break in progress). macOS's window restoration has
+        // nothing to add, and after a crash its "reopen windows?" dialog would sit in front of everything.
+        UserDefaults.standard.register(defaults: ["ApplePersistenceIgnoreState": true, "NSQuitAlwaysKeepsWindows": false])
         let app = NSApplication.shared
         app.delegate = delegate
         app.setActivationPolicy(.regular)   // Dock icon + window: your menu bar auto-hides, so the tomato alone is easy to lose

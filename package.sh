@@ -8,7 +8,7 @@
 # Without them it ad-hoc signs, and people allow it once in System Settings › Privacy & Security (see the README in the DMG).
 set -e
 cd "$(dirname "$0")"
-VERSION=${VERSION:-1.3.0}
+VERSION=${VERSION:-1.3.1}
 BUILD=${BUILD:-$(date +%Y%m%d%H%M)}
 OUT=dist
 APP="$OUT/SpinBreak.app"

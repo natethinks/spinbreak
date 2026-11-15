@@ -20,7 +20,7 @@ A pomodoro used to be how you made yourself start work. Now that the agents do t
 
 ![The morning screen](docs/morning.jpg)
 
-<p align="center"><img src="docs/start.jpg" width="320" alt="The start window"></p>
+![The SpinBreak window: your day on the left, this morning's list and brief on the right](docs/start.jpg)
 
 ## Install
 
@@ -30,14 +30,15 @@ A pomodoro used to be how you made yourself start work. Now that the agents do t
 
 Needs macOS 14 or later. Apple silicon and Intel.
 
-## First run: your own AI finishes the install
+## First run: your own agent sets it up
 
-SpinBreak opens on Settings › Your AI.
+SpinBreak opens on one button.
 
-1. Click **Copy setup prompt** and paste it into your AI. Best is one that can run commands on your Mac (Claude Code, Codex, Cursor and the like). A chat AI in a browser works too.
-2. Answer its questions: what your morning list should have on it, what you want your breaks filled with, your goals, who you live with, your rooms, your workday, and what you'd like in a morning brief.
-3. An AI on your Mac does the rest by itself. It saves your setup, sets up your daily brief, and writes today's as a test. A chat AI gives you a block of JSON to paste back instead.
-4. Click **I'm set, let's go**.
+1. Click **Copy setup prompt** and paste it into your agent (Claude Code, Codex, Cursor, or whatever you use).
+2. Answer its questions. It builds your list and morning checklist, sets up your daily brief, and writes today's as a test.
+3. Back in SpinBreak, click **Let's go**.
+
+Only have a chat AI in a browser? Paste the prompt there, copy its whole answer, and click "Paste a chat AI's answer" under the button.
 
 Everything it sets up can also be edited by hand in Settings.
 

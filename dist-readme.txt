@@ -13,20 +13,15 @@ INSTALL
    - Reminders: your break-over alarm, which also reaches your iPhone and Apple Watch.
    - Calendar: breaks end early before your meetings.
 
-FIRST RUN: YOUR OWN AI FINISHES THE INSTALL (about 10 minutes)
-SpinBreak opens on Settings › Your AI.
-1. Click "Copy setup prompt" and paste it into your AI.
-   Best: one that can run commands on your Mac (Claude Code, Codex, Cursor…).
-   A chat AI in your browser (ChatGPT, Claude, Gemini…) works too.
-2. Answer its questions: what your morning list should have on it before you
-   start work, what you want your breaks filled with, your goals, who you live
-   with, your home's rooms, your workday, and what you'd like in a morning brief.
-3. An AI on your Mac then does the rest by itself: it saves your setup, sets up
-   your daily brief, and writes today's as a test. Watch it tick off under
-   "What's set up" in SpinBreak.
-   A chat AI ends with a block of JSON instead: copy its whole answer, then
-   click "Read it from the clipboard" and "Use this setup".
-4. Click "I'm set, let's go".
+FIRST RUN: YOUR OWN AGENT SETS IT UP (about 10 minutes)
+SpinBreak opens on one button.
+1. Click "Copy setup prompt" and paste it into your agent (Claude Code, Codex,
+   Cursor, or whatever you use).
+2. Answer its questions. It builds your list and morning checklist, sets up your
+   daily brief, and writes today's as a test.
+3. Back in SpinBreak, click "Let's go".
+Only have a chat AI in a browser? Paste the prompt there, copy its whole answer,
+and click "Paste a chat AI's answer" under the button.
 Prefer to do it by hand? The Activities, Balance, Schedule and Morning tabs edit
 everything directly. Settings are always in the menu bar menu or Cmd-comma.
 
@@ -35,8 +30,8 @@ Every workday opens full-screen on your morning checklist, next to your brief.
 - Check everything off to start work.
 - Need the laptop first? "I need the laptop for 5 minutes" steps the screen
   aside and brings it back, with your ticks kept.
-- Skipped it? Your list and brief follow you in a window you can keep beside
-  your work. The tomato menu has "This Morning's Brief" all day, weekends included.
+- Skipped it? Your list and brief stay on the SpinBreak window (the Dock icon)
+  all day, weekends included, next to how your day is going.
 
 YOUR MORNING BRIEF
 - If your AI set up the daily brief, SpinBreak runs it each morning after 5 am,

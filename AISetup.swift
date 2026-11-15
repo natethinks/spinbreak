@@ -15,7 +15,7 @@ enum AISetup {
     static func setupPrompt(dir: URL, rooms: String?) -> String {
         let d = dir.path
         return """
-        You're finishing the install of SpinBreak, a Mac app I just opened for the first time. Interview me, then set it up for me.
+        You're finishing the install of SpinBreak, a Mac app I just opened for the first time. Get to know me, then set it up for me: my list of breaks, my morning checklist, and a brief that writes itself every morning.
 
         WHAT SPINBREAK IS
         A reversed pomodoro. I work in short bursts (usually 5 minutes: long enough to steer my AI tools or finish one small thing), then take a long break (usually 25 minutes) doing something real in my life. A slot-machine spinner picks each break from my list of activities, under rules: time windows, daily aims per category, weekly limits. Cleaning is split into rooms; after I clean one I rate how messy it was, and rough rooms come back sooner. Every workday opens on a full-screen morning checklist I have to get through before work, next to a morning brief that you will write for me each day.
@@ -27,19 +27,30 @@ enum AISetup {
           \(d)
         If you're kind A, check that the folder exists before you start. If it doesn't, you're not on my Mac: you're kind B.
 
-        STEP 1 · INTERVIEW ME
-        Conversationally, two or three questions at a time, not a form. Offer examples when I'm stuck, and move on once you have enough. Cover:
-        1. My name, and the town I live in (for sunrise, sunset and weather).
-        2. My workday: when it starts and ends, whether weekends are off, how long work bursts and breaks should be (default 5 and 25).
-        3. My morning list: what has to be true before I'm allowed to start work? 5 to 8 short items I can honestly check off (water, teeth, bed made, outside light, breakfast, a prayer, knowing the one thing that matters today…).
-        4. What I want to fill my breaks with: my goals right now (health, fitness, relationships, learning, creative work, faith, money, a project), what I love doing, what I keep meaning to do and don't, what has to happen regularly (meals, walks, errands, pets), and anything that's off limits.
-        5. Who I live with (partner, kids, pets, roommates) and what good time with them looks like.
-        6. The rooms and spaces of my home that need regular cleaning (kitchen, each bathroom, bedrooms, kids' rooms, entry, office, garage, car, yard…), and roughly how often each needs it.
-        7. My morning brief: what I'd like to read each morning (weather, today's calendar, follow-ups from yesterday, a nudge on a goal, a verse or quote, a word of the day, a phrase in a language I'm learning…), in what order, and in what tone.
-        8. Whether SpinBreak should open by itself when I log in. Recommend yes: it runs the morning screen and the daily brief.
+        STEP 1 · GET TO KNOW ME
+        You're the one doing the thinking here; SpinBreak is only a timer with a nice face. Work out what my days should hold. Start from what you already know about me, ask about the rest in conversation (two or three questions at a time, never a form), and ask before you go looking through my files. By the end you should know:
+        - who I am, and where I live and work from. The app only needs my town; you can work out my sunrise, my weather and my seasons from it.
+        - the shape of my workday: when it starts and ends, whether weekends are off, how long a work burst and a break should be (default 5 and 25).
+        - what my mornings need: the few things that have to be true before I start work.
+        - what I want more of and what I keep putting off: health, people, learning, making things, faith, money, a project, plain fun. If I'd rather play video games than learn a language, that's my call. Build the list I would actually do.
+        - who I live with, and what good time with them looks like.
+        - my home: the rooms and spaces that need regular cleaning, how messy it honestly gets, and how much cleaning I'm up for.
+        - what I'd like to read each morning, and in what voice.
+        - whether SpinBreak should open by itself when I log in. Recommend yes: it runs the morning screen and the daily brief.
         \(rooms.map { "\nI share my home with someone who already uses SpinBreak. Use these room ids for the same rooms, so our two spinners split the cleaning instead of doubling up:\n\($0)\n" } ?? "\nIf I share my home with someone who already uses SpinBreak, ask me for their room list (their SpinBreak › Settings › Household › Copy my rooms) and reuse those exact ids for the same rooms.\n")
-        STEP 2 · BUILD MY LIST
-        Aim for 30 to 50 activities, spread across 7 to 10 categories that fit MY life. Every activity is a concrete 25-minute thing I could start right now, not a vague goal: "Walk to the park and back", not "Exercise". Include one activity per room (that's how cleaning gets spread out), plus meals, movement, time outside, people, and my goals. Show me a short summary (each category with a few examples, my morning list, the sections of my brief) and ask what's missing or wrong before you write anything.
+        STEP 2 · DO YOUR HOMEWORK, THEN BUILD MY LIST
+        Before you build anything, spend a few minutes on what is actually known to make a day better (search the web if you can): morning daylight, walking after meals, time outdoors across a week, short bouts of movement and real exercise, time with people, caffeine and sleep, rest that isn't a screen, learning and making things in small sessions. Then fit it to me. Don't lecture me about it. Let it show in what you choose and in how you write each one.
+
+        What makes a list work (learned the hard way):
+        - 30 to 50 activities across 7 to 10 categories that fit MY life. Each is a concrete thing I could start this minute and finish in one break, away from a screen: "Walk to the park and back", not "Exercise". Its "how" line says exactly what to do.
+        - Every hour of my day needs something that fits: first thing, after lunch, late afternoon, and after dark in winter. Outdoor things need daylight, so leave plenty for when it's dark or raining.
+        - Anchor the backbone (light soon after sunrise, real meals at mealtimes, a wind-down) and leave the rest to the spinner.
+        - One activity per room, so the cleaning gets spread out. The app asks me how messy each room was and brings rough ones back sooner; you set how often each may come up.
+        - Hard exercise at most once a day, never two sitting activities in a row, nothing that winds me up late.
+        - Category aims should add up to about the number of breaks in my day (10 to 14).
+        - My morning list: 5 to 8 things I can honestly tick, a few minutes each, in the order they happen. Things I do, not things I hope.
+        - My brief: settle its sections, their order and its voice with me, and say what changes daily (a word, a phrase, a quote).
+        Show me a short summary (each category with a few examples and why the less obvious ones are there, my morning list, the sections of my brief, and what a typical day will look like) and ask what's missing or wrong before you write anything.
 
         THE JSON
         One JSON object in this shape (the comments are explanations, don't include them):
@@ -88,7 +99,8 @@ enum AISetup {
           "seated": true                      a sitting activity; never two in a row
           "notFirst": true                    never the first break of the day
           "months": [5,6,7,8,9]               only in these months
-        Good rules of thumb: rooms get "groups": ["clean"] and a weeklyMax of 1 to 3; hard exercise gets a group with "cap": 1; meals get anchors; anything outside gets "daylight": true; category targets should add up to about 10 to 14 a day.
+        Group names the app treats specially, so use them: "clean" = a room; "vig" = vigorous, never offered after 6 pm; "caff" = caffeine, never after 2 pm; "screen" = on a screen (never the first break, never after 8 pm, never on a reroll). Any group can have a daily "cap" in "groups".
+        Good rules of thumb: rooms get "groups": ["clean"] and a weeklyMax of 1 to 3; hard exercise gets "vig" and a group with "cap": 1; meals get anchors; anything outside gets "daylight": true; category targets should add up to about 10 to 14 a day.
 
         STEP 3 · SAVE IT (kind A)
         Save the JSON as \(d)/setup.json. Write it under another name first (setup.json.tmp) and rename it, so SpinBreak never reads half a file. SpinBreak has to be open. It imports the file within a few seconds and answers in \(d)/setup-status.json: {"ok": true, "summary": "…"} or {"ok": false, "error": "…"}. Read that file. If ok is false, fix the JSON and save it again. Don't edit activities.json or anything else in the folder yourself; the app owns those files.
@@ -110,10 +122,10 @@ enum AISetup {
         4. Read the brief (its path is in brief-status.json), show it to me, and ask what I'd change. How it's written lives in brief-style.md, plain text, re-read on every run: edit that and run the job again.
 
         WHEN YOU'RE DONE
-        Tell me in a few lines what you set up and how I change it later (SpinBreak › Settings for the list and the morning checklist; brief-style.md or Settings › Your AI for the brief). Then tell me to go back to SpinBreak and press "I'm set, let's go".
+        Tell me in a few lines what you set up and how I change it later (SpinBreak › Settings for the list and the morning checklist; brief-style.md or Settings › Your AI for the brief). Then tell me to go back to SpinBreak and press "Let's go".
 
         IF YOU'RE A CHAT (kind B)
-        Reply with the JSON as exactly one ```json code block. Tell me to copy your whole answer, then in SpinBreak › Settings › Your AI press "Read it from the clipboard" and "Use this setup". After that my brief works by copy and paste: each morning SpinBreak has a "Copy today's request" button; I paste the request to you and paste your answer back. Say that plainly so I know what to expect, and if you can schedule a daily reminder for me, offer to.
+        Reply with the JSON as exactly one ```json code block. Tell me to copy your whole answer, then press "Paste a chat AI's answer" in SpinBreak's welcome window. After that my brief works by copy and paste: each morning SpinBreak has a "Copy today's request" button; I paste the request to you and paste your answer back. Say that plainly so I know what to expect, and if you can schedule a daily reminder for me, offer to.
         """
     }
 
